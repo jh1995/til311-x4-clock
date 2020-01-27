@@ -1,3 +1,4 @@
+
 // (c) by Paolo CRAVERO IK1ZYW 2016. All rights reserved.
 //
 // No responsibility is taken for any use of this code,
@@ -7,12 +8,16 @@
 #include <Wire.h>
 #include <EEPROM.h> // used to store DST status
 #include <RTClib.h>
+#include <EasyButton.h>
 
 RTC_DS3231 rtc;
 DateTime RTCnow;
 
+
 // **** CONFIGURATION ****
 const bool MSDblank = 1;  // set to 1 to blank MSD when its value is zero
+
+#define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
 
 int DSTdays[100] = {
 0x25, // 2016-03-27 to 2016-10-30
@@ -125,7 +130,7 @@ int inputs[4] = {15,14,11,8}; // Q1, Q2, Q4, Q8 outputs
 
 int latches[4] = {17,16,4,7}; // latches LSD to MSD
 
-int blanking[4] = {5,6,9,10}; // blanking line for brightness control via PWM (must be PWM pins)
+int blanking[4] = {6,5,9,10}; // blanking line for brightness control via PWM (must be PWM pins)
 
 #define decimalPointLeft 13
 #define decimalPointRight 12
@@ -147,7 +152,7 @@ int blanking[4] = {5,6,9,10}; // blanking line for brightness control via PWM (m
    byte month_nr;
    byte year_nr;
 
-
+EasyButton button(buttonPin);
 
 bool blinker = 0;  // blinking control variable
 bool dpBlink = 0; // decimal point blinking control; set to 1 to make decimal points blink
@@ -159,6 +164,9 @@ bool dpRightStatus = 0;
 
 bool secondElapsed = 0;
 int  secondsElapsed = 30;
+
+bool shortPress = 0;
+bool longPress = 0;
 
 int sensorValue = 0;  // variable to store the value coming from the LDR sensor
 int sensorValuePrev = 0; // variable to store the previos value of LDR sensor
@@ -190,7 +198,6 @@ void setup() {
   // Initialize inputs and outputs
   pinMode(sensorPin, INPUT_PULLUP);
   pinMode(potPin, INPUT);
-  //analogReference(DEFAULT);
   pinMode(oneSecondInterruptPin, INPUT); // DS3231 square wave output. Does it need pullup?
     
   for(int a = 0; a < 4; a++){pinMode(inputs[a], OUTPUT); digitalWrite(inputs[a], LOW);} //set data lines outputs
@@ -213,7 +220,9 @@ void setup() {
     Serial.println("RTC lost power, you need to set the time!");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
-    // TODO: display an error on the display E002
+    printBCD(2, 0xE0);
+    printBCD(0, 0x02);
+    delay(5000);
     
   }
 
@@ -225,13 +234,25 @@ void setup() {
   seconds = RTCnow.second();
 
   attachInterrupt(digitalPinToInterrupt(oneSecondInterruptPin), oneSecondISR, FALLING);
+
+  // button initialization routines. Using INT1, so External Interrupt
+  button.begin();
+  button.onPressed(buttonPressed);
+  button.onPressedFor(2000, buttonPressedTwoSeconds);
+  if (button.supportsInterrupt())
+  {
+    button.enableInterrupt(buttonISR);
+    Serial.println("EasyButton onPressedFor Interrupt example");
+  }
   
   updateDisplay(3, 12);
   updateDisplay(2, 1);
   updateDisplay(1, 10);
   updateDisplay(0, 0);
 
-  delay(1500);
+
+
+  delay(500);
 
 }
 
@@ -244,6 +265,7 @@ int bcdToDec(int val)
 {
   return ( val / 16 * 10 + val % 16 );
 }
+
 
 // increase a BCD value converting it to decimal and back
 byte increaseBCD ( byte myBCD, int lowLimit, int highLimit ) {
@@ -371,82 +393,250 @@ void oneSecondISR() {
   secondsElapsed += 1;
 }
 
+void buttonPressedTwoSeconds()
+{
+  longPress = 1;
+}
+
+void buttonPressed()
+{
+  shortPress = 1;
+}
+
+void buttonISR()
+{
+  //When button is being used through external interrupts, parameter INTERRUPT must be passed to read() function
+  button.read(INTERRUPT); 
+}
+
 void loop() {
 
   int lightIntensity;
+  int newHours;
+  int newMinutes;
+  int newDay;
+  int newMonth;
+  int newYear;
+  int newDoW;
 
-  if (secondElapsed == 1) {
-    blinker = secondsElapsed % 2; // blink stuff once a second (0.5 Hz)
+  button.update();
 
-    // Control blinking dots. Since there is no PWM on them,
-    // turn them off in darkness or during DD/MM/YY display
-    // at the end of the minute
-    if ( (secondsElapsed>56) || (lightIntensity > 200) ) {
-      updateDpLeft(0);
-      updateDpRight(0);      
-    } else {
-      updateDpLeft(blinker);
-      updateDpRight(!blinker);
-    }
+  if (shortPress == 1) {
+    // short button press, enter time COUNTER routine
 
-      // 0 to about 1020
-//      lightIntensity = analogRead(sensorPin);
-//      Serial.print("Light value: ");
-//      Serial.println(lightIntensity);
+    longPress = 0; // acknowledge long press
+    shortPress = 0; // reset short press
 
-    lightIntensity = map(analogRead(sensorPin), 0, 1020, 0, 240);
+    // get rid of DPs
+    updateDpLeft(0);
+    updateDpRight(0);
     
-    secondElapsed = 0;
+    // wait for a short press to start elapsed time counter
+    do {
+      button.update();
+      printBCD(2, 0x0C);
+      printBCD(0, 0x00);
+      blankControl(255, lightIntensity, lightIntensity, 255); // blank rightmost two digits
+    } while (shortPress==0);
     
-  }
+    shortPress = 0;
+    secondsElapsed = 0;
 
-   
-  
-  if (secondsElapsed >= 60) {
+    updateDpRight(1); // set a spacer
 
-    // once a minute update the data from RTC
-    RTCnow = rtc.now();
-    Serial.print(RTCnow.year(), DEC);
-    Serial.print('/');
-    Serial.print(RTCnow.month(), DEC);
-    Serial.print('/');
-    Serial.print(RTCnow.day(), DEC);
-    Serial.print(" (");
-    Serial.print(RTCnow.dayOfTheWeek());
-    Serial.print(") ");
-    Serial.print(RTCnow.hour(), DEC);
-    Serial.print(':');
-    Serial.print(RTCnow.minute(), DEC);
-    Serial.print(':');
-    Serial.println(RTCnow.second(), DEC);
-    Serial.print("Temperature: ");
-    Serial.println((int)rtc.getTemperature());
-    Serial.println(lightIntensity);
+    do {
+      // upcount until button is pressed
+      do {
+        button.update();
+        printBCD(2, decToBcd(secondsElapsed/60));
+        printBCD(0, decToBcd(secondsElapsed%60));
+        blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+      } while (shortPress == 0);
+      shortPress = 0;
+      longPress = 0; 
+
+      do {
+        button.update();
+      } while (!(button.wasReleased()));
+      shortPress = 0;
+
+    } while (longPress == 0);
+    shortPress = 0;
+    longPress = 0;
     
+    RTCnow = rtc.now(); // update current time
     secondsElapsed = RTCnow.second();
-  }
+        
+  } else if (longPress == 1) {
+    // long button press, enter time SETTING routine
+    
+    longPress = 0; // acknowledge long press
+    shortPress = 0; // reset short press
 
-  switch (secondsElapsed) {
-  case 59:
-    printBCD(2, 0x20);
-    printBCD(0, decToBcd(RTCnow.year()%100));
-    blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); // restore luminosity
-    break;
-  case 58:
-    printBCD(0, decToBcd(RTCnow.month()));
-    blankControl(255, 255, lightIntensity, lightIntensity); // blank leftmost two digits
-    break;
-  case 57:
-    printBCD(2, decToBcd(RTCnow.day()));
-    blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
-    break;
-  default:
-    printBCD(2, decToBcd(RTCnow.hour()));
-    printBCD(0, decToBcd(RTCnow.minute()));
-    blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
-    break;
-  }
+    // turn off DPs
+    updateDpLeft(0);
+    updateDpRight(0);      
 
+    newHours = RTCnow.hour();
+    newMinutes = RTCnow.minute();
+    newDay = RTCnow.day();
+    newMonth = RTCnow.month();
+    newYear = RTCnow.year();
+    newDoW = RTCnow.dayOfTheWeek();
+
+    // set hours
+    do {
+      button.update();
+      newHours = map(analogRead(potPin),0,1000,0,23);
+      printBCD(2, decToBcd(newHours));
+      printBCD(0, decToBcd(newMinutes));
+      blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
+    } while (shortPress==0);
+    shortPress = 0;
+    
+    // set minutes
+    do {
+      button.update();
+      newMinutes = map(analogRead(potPin),0,1000,0,59);
+      printBCD(2, decToBcd(newHours));
+      printBCD(0, decToBcd(newMinutes));
+      blankControl(240, 240, MAXBRI, MAXBRI); // blank rightmost two digits
+    } while (shortPress==0);
+    shortPress = 0;
+
+    // set month
+    do {
+      button.update();
+      newMonth = map(analogRead(potPin),0,1000,1,12);
+      printBCD(2, decToBcd(newDay));
+      printBCD(0, decToBcd(newMonth));
+      blankControl(240, 240, MAXBRI, MAXBRI); // blank leftmost two digits
+    } while (shortPress==0);
+    shortPress = 0;
+
+    // set day
+    // *** TODO set day upper limit based on newMonth!!
+    do {
+      button.update();
+      newDay = map(analogRead(potPin),0,1000,1,31);
+      printBCD(2, decToBcd(newDay));
+      printBCD(0, decToBcd(newMonth));
+      blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
+    } while (shortPress==0);
+    shortPress = 0;
+
+    // set year
+    do {
+      button.update();
+      newYear = map(analogRead(potPin),0,1000,20,50);
+      printBCD(2, 0x20);
+      printBCD(0, decToBcd(newYear));
+      blankControl(MAXBRI, MAXBRI, MAXBRI, MAXBRI); // no blanking for the year
+    } while (shortPress==0);
+    shortPress = 0;
+
+    // set day of the week
+//    do {
+//      button.update();
+//      newDoW = map(analogRead(potPin),0,1000, 1, 7);
+//      printBCD(2, 0xDA);
+//      printBCD(0, decToBcd(newDoW));
+//      blankControl(150, 150, 255, 0); // no blanking for the year
+//    } while (shortPress==0);
+//    shortPress = 0;
+
+    // update the RTC only if the button was not longpressed during previous steps
+    if (longPress == 0) {
+      rtc.adjust(DateTime(newYear, newMonth, newDay, newHours, newMinutes, 0));
+    }
+        
+    // exit
+    shortPress = 0;
+    longPress = 0;
+    
+  } else {
+    // no button press, display time
+
+    if (secondElapsed == 1) {
+      blinker = secondsElapsed % 2; // blink stuff once a second (0.5 Hz)
+  
+      // Control blinking dots. Since there is no PWM on them,
+      // turn them off in darkness or during DD/MM/YY display
+      // at the end of the minute
+      if ( (secondsElapsed>56) || (lightIntensity > 200) ) {
+        updateDpLeft(0);
+        updateDpRight(0);      
+      } else {
+        updateDpLeft(blinker);
+        updateDpRight(!blinker);
+      }
+  
+        // 0 to about 1020
+  //      lightIntensity = analogRead(sensorPin);
+  //      Serial.print("Light value: ");
+  //      Serial.println(lightIntensity);
+  
+      lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, 240);
+      
+      secondElapsed = 0;
+      
+    }
+  
+     
+    
+    if (secondsElapsed >= 60) {
+  
+      // once a minute update the data from RTC
+      RTCnow = rtc.now();
+      Serial.print(RTCnow.year(), DEC);
+      Serial.print('/');
+      Serial.print(RTCnow.month(), DEC);
+      Serial.print('/');
+      Serial.print(RTCnow.day(), DEC);
+      Serial.print(" (");
+      Serial.print(RTCnow.dayOfTheWeek());
+      Serial.print(") ");
+      Serial.print(RTCnow.hour(), DEC);
+      Serial.print(':');
+      Serial.print(RTCnow.minute(), DEC);
+      Serial.print(':');
+      Serial.println(RTCnow.second(), DEC);
+      Serial.print("Temperature: ");
+      Serial.println((int)rtc.getTemperature());
+      Serial.println(lightIntensity);
+      
+      secondsElapsed = RTCnow.second();
+    }
+  
+    switch (secondsElapsed) {
+    case 59:
+      // day-of-the-week number
+      printBCD(2, 0xDA);
+      printBCD(0, decToBcd(RTCnow.dayOfTheWeek()));
+      blankControl(lightIntensity, lightIntensity, 255, lightIntensity); // blank rightmost two digits
+      break;
+    case 58:
+      printBCD(2, 0x20);
+      printBCD(0, decToBcd(RTCnow.year()%100));
+      blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); // restore luminosity
+      break;
+    case 57:
+      printBCD(0, decToBcd(RTCnow.month()));
+      blankControl(255, 255, lightIntensity, lightIntensity); // blank leftmost two digits
+      break;
+    case 56:
+      // show month-day and day-of-the-week number
+      printBCD(2, decToBcd(RTCnow.day()));
+      printBCD(0, 0xFF);
+      blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
+      break;
+    default:
+      printBCD(2, decToBcd(RTCnow.hour()));
+      printBCD(0, decToBcd(RTCnow.minute()));
+      blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+      break;
+    }
+  }
 
  
 } 
