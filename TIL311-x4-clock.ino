@@ -20,6 +20,7 @@ const bool MSDblank = 1;  // set to 1 to blank MSD when its value is zero
 #define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
 //
 
+#define WORDS 24 // update this value to reflect the following array, minus 1
 int words[] = {
   0xC1, 0xA0,
   0xF1, 0xFA,
@@ -646,7 +647,7 @@ void loop() {
 
     if (secondsElapsed >= 60) {
 
-      randomWord = random(0, (sizeof(words)/2));
+      randomWord = random(0, WORDS);
 
       // once a minute update the data from RTC
       RTCnow = rtc.now();
@@ -693,8 +694,8 @@ void loop() {
         blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
         break;
       case 28:
-        printBCD(2, words[randomWord*2]);
-        printBCD(0, words[(randomWord*2)+1]);
+        printBCD(2, words[randomWord]);
+        printBCD(0, words[randomWord+1]);
         break;        
       default:
         printBCD(2, decToBcd(RTCnow.hour()));
