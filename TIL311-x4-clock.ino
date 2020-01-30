@@ -1,5 +1,5 @@
 
-// (c) by Paolo CRAVERO IK1ZYW 2016. All rights reserved.
+// (c) by Paolo CRAVERO IK1ZYW 2020. All rights reserved.
 //
 // No responsibility is taken for any use of this code,
 // which is provided as an academic guidance to fellow builders.
@@ -20,7 +20,8 @@ const bool MSDblank = 1;  // set to 1 to blank MSD when its value is zero
 #define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
 //
 
-#define WORDS 24 // update this value to reflect the following array, minus 1
+#define WORDPCT 10 // percent of cases in which we show a random word
+#define WORDS 35 // update this value to reflect the following array, minus 1
 int words[] = {
   0xC1, 0xA0,
   0xF1, 0xFA,
@@ -46,7 +47,18 @@ int words[] = {
   0xAB, 0xBA,
   0x1C, 0xED,
   0x2B, 0xAD,
-  0xBE, 0xEF
+  0xBE, 0xEF, // 24 is here. End of 4-letter words
+  0xD1, 0x00,
+  0xF0, 0xE0,
+  0xBA, 0xD0,
+  0xBE, 0xD0,
+  0xB1, 0xD0,
+  0xB1, 0x00,
+  0xB0, 0xA0,
+  0xEC, 0x00,
+  0x1C, 0xE0,
+  0x0C, 0xA0,
+  0xA1, 0xA0, // 35
 };
 
 //int words[] = {
@@ -272,6 +284,10 @@ void setup() {
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     // TODO: display an error on the display E001
+    printBCD(2, 0xE0);
+    printBCD(0, 0x01);
+    delay(1000);
+
     while (1);
   }
 
@@ -302,7 +318,7 @@ void setup() {
   if (button.supportsInterrupt())
   {
     button.enableInterrupt(buttonISR);
-    Serial.println("EasyButton onPressedFor Interrupt example");
+//    Serial.println("EasyButton onPressedFor Interrupt example");
   }
 
   updateDisplay(3, 12);
@@ -421,16 +437,16 @@ int IsDst(int day, int month, int year)
   int changeOverToSolar = (changeOverDays & 0x0F) + 25;
   int changeOverToDST = (changeOverDays >> 4) + 25;
 
-  Serial.println(changeOverDays, HEX);
-  Serial.println(changeOverToSolar, DEC);
-  Serial.println(changeOverToDST, DEC);
-
-  Serial.print("day: ");
-  Serial.print(myday, DEC);
-  Serial.print(" month: ");
-  Serial.print(mymonth, DEC);
-  Serial.print(" year: ");
-  Serial.println(myyear, DEC);
+//  Serial.println(changeOverDays, HEX);
+//  Serial.println(changeOverToSolar, DEC);
+//  Serial.println(changeOverToDST, DEC);
+//
+//  Serial.print("day: ");
+//  Serial.print(myday, DEC);
+//  Serial.print(" month: ");
+//  Serial.print(mymonth, DEC);
+//  Serial.print(" year: ");
+//  Serial.println(myyear, DEC);
 
   if (mymonth < 3 || mymonth > 10)  return 0;
   if (mymonth > 3 && mymonth < 10)  return 1;
@@ -647,31 +663,41 @@ void loop() {
 
     if (secondsElapsed >= 60) {
 
-      randomWord = random(0, WORDS);
-
+      randomWord = random(0, WORDS) * 2;
+      
       // once a minute update the data from RTC
       RTCnow = rtc.now();
-      Serial.print(RTCnow.year(), DEC);
-      Serial.print('/');
-      Serial.print(RTCnow.month(), DEC);
-      Serial.print('/');
-      Serial.print(RTCnow.day(), DEC);
-      Serial.print(" (");
-      Serial.print(RTCnow.dayOfTheWeek());
-      Serial.print(") ");
-      Serial.print(RTCnow.hour(), DEC);
-      Serial.print(':');
-      Serial.print(RTCnow.minute(), DEC);
-      Serial.print(':');
-      Serial.println(RTCnow.second(), DEC);
-      Serial.print("Temperature: ");
-      Serial.println((int)rtc.getTemperature());
-      Serial.println(lightIntensity);
+//      Serial.print(RTCnow.year(), DEC);
+//      Serial.print('/');
+//      Serial.print(RTCnow.month(), DEC);
+//      Serial.print('/');
+//      Serial.print(RTCnow.day(), DEC);
+//      Serial.print(" (");
+//      Serial.print(RTCnow.dayOfTheWeek());
+//      Serial.print(") ");
+//      Serial.print(RTCnow.hour(), DEC);
+//      Serial.print(':');
+//      Serial.print(RTCnow.minute(), DEC);
+//      Serial.print(':');
+//      Serial.println(RTCnow.second(), DEC);
+//      Serial.print("Temperature: ");
+//      Serial.println((int)rtc.getTemperature());
+//      Serial.println(lightIntensity);
 
       secondsElapsed = RTCnow.second();
     }
 
     switch (secondsElapsed) {
+
+      case 18:
+        printBCD(2, words[randomWord]);
+        printBCD(0, words[randomWord+1]);
+        if (randomWord > 48) { // we're beyond 4-letter words
+          blankControl(lightIntensity, lightIntensity, lightIntensity, 255);
+        }
+        updateDpRight(0);
+        updateDpLeft(0);
+        break;
       case 59:
         // day-of-the-week number
         printBCD(2, 0xDA);
@@ -693,10 +719,6 @@ void loop() {
         printBCD(0, 0xFF);
         blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
         break;
-      case 28:
-        printBCD(2, words[randomWord]);
-        printBCD(0, words[randomWord+1]);
-        break;        
       default:
         printBCD(2, decToBcd(RTCnow.hour()));
         printBCD(0, decToBcd(RTCnow.minute()));
