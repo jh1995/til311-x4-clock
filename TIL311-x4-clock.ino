@@ -20,7 +20,6 @@ const bool MSDblank = 1;  // set to 1 to blank MSD when its value is zero
 #define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
 //
 
-#define WORDPCT 10 // percent of cases in which we show a random word
 #define WORDS 35 // update this value to reflect the following array, minus 1
 int words[] = {
   0xC1, 0xA0,
@@ -263,6 +262,11 @@ void setup() {
   pinMode(oneSecondInterruptPin, INPUT); // DS3231 square wave output. Does it need pullup?
 
   for (int a = 0; a < 4; a++) {
+    pinMode(blanking[a], OUTPUT);  // set blanking/PWM outputs
+    analogWrite(blanking[a], 255);
+  }
+  
+  for (int a = 0; a < 4; a++) {
     pinMode(inputs[a], OUTPUT);  //set data lines outputs
     digitalWrite(inputs[a], LOW);
   }
@@ -270,10 +274,7 @@ void setup() {
     pinMode(latches[a], OUTPUT);  //set data latches outputs
     digitalWrite(latches[a], HIGH);
   }
-  for (int a = 0; a < 4; a++) {
-    pinMode(blanking[a], OUTPUT);  // set blanking/PWM outputs
-    analogWrite(blanking[a], 150);
-  }
+
 
   pinMode(decimalPointLeft, OUTPUT);
   digitalWrite(decimalPointLeft, HIGH); // DP off
@@ -284,6 +285,7 @@ void setup() {
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     // TODO: display an error on the display E001
+    blankControl(50, 50, 50, 50);
     printBCD(2, 0xE0);
     printBCD(0, 0x01);
     delay(1000);
@@ -295,6 +297,7 @@ void setup() {
     Serial.println("RTC lost power, you need to set the time!");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    blankControl(50, 50, 50, 50);
     printBCD(2, 0xE0);
     printBCD(0, 0x02);
     delay(5000);
@@ -307,6 +310,7 @@ void setup() {
 
   RTCnow = rtc.now();
   seconds = RTCnow.second();
+  secondsElapsed = seconds;
   randomSeed(seconds+RTCnow.day()+RTCnow.month());
 
   attachInterrupt(digitalPinToInterrupt(oneSecondInterruptPin), oneSecondISR, FALLING);
@@ -326,10 +330,29 @@ void setup() {
   updateDisplay(1, 10);
   updateDisplay(0, 0);
 
+  // fadeIn
+  fadeIn();
+
+  delay(200);
+
+}
 
 
-  delay(500);
+void fadeIn()
+{
+  for (int j=255; j>=5; j=j-10) {
+    blankControl(j, j, j, j);
+    delay(25);
+  }
+}
 
+int fadeOut(int startingValue = 10)
+{
+  for (int j=startingValue; j<256; j=j+10) {
+    blankControl(j, j, j, j);
+    delay(25);
+  }
+  return 255; // return all off
 }
 
 int decToBcd(int val)
@@ -487,7 +510,7 @@ void buttonISR()
 
 void loop() {
 
-  int lightIntensity;
+  static int lightIntensity;
   int newHours;
   int newMinutes;
   int newDay;
@@ -528,6 +551,7 @@ void loop() {
         printBCD(2, decToBcd(secondsElapsed / 60));
         printBCD(0, decToBcd(secondsElapsed % 60));
         blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+        if (secondsElapsed > 5999) { secondsElapsed = 0; } // return to zero after 99'59"
       } while (shortPress == 0);
       shortPress = 0;
       longPress = 0;
@@ -688,8 +712,8 @@ void loop() {
     }
 
     switch (secondsElapsed) {
-
       case 18:
+      case 19:
         printBCD(2, words[randomWord]);
         printBCD(0, words[randomWord+1]);
         if (randomWord > 48) { // we're beyond 4-letter words
@@ -718,6 +742,12 @@ void loop() {
         printBCD(2, decToBcd(RTCnow.day()));
         printBCD(0, 0xFF);
         blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
+        break;
+      case 55:
+        lightIntensity = fadeOut(lightIntensity);
+        delay(200);
+        updateDpRight(0);
+        updateDpLeft(0);
         break;
       default:
         printBCD(2, decToBcd(RTCnow.hour()));
