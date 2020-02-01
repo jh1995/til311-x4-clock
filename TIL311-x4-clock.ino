@@ -15,12 +15,12 @@ DateTime RTCnow;
 
 
 // **** CONFIGURATION ****
-const bool MSDblank = 1;  // set to 1 to blank MSD when its value is zero
 
 #define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
-//
 
-#define WORDS 35 // update this value to reflect the following array, minus 1
+#define WORDS 46 // update this value to reflect the following array, minus 1
+#define WORDS4LETTER 32
+#define WORDS3LETTER 43
 int words[] = {
   0xC1, 0xA0,
   0xF1, 0xFA,
@@ -46,7 +46,15 @@ int words[] = {
   0xAB, 0xBA,
   0x1C, 0xED,
   0x2B, 0xAD,
-  0xBE, 0xEF, // 24 is here. End of 4-letter words
+  0x36, 0x37,
+  0x0B, 0x0E,
+  0xAA, 0xAA,
+  0xBB, 0xBB,
+  0xCC, 0xCC,
+  0xDD, 0xDD,
+  0xEE, 0xEE,
+  0xFF, 0xFF,
+  0xBE, 0xEF, // 32 is here. End of 4-letter words
   0xD1, 0x00,
   0xF0, 0xE0,
   0xBA, 0xD0,
@@ -57,7 +65,10 @@ int words[] = {
   0xEC, 0x00,
   0x1C, 0xE0,
   0x0C, 0xA0,
-  0xA1, 0xA0, // 35
+  0xA1, 0xA0, // 43 is here. End of 3-letter words
+  0x04, 0x20,
+  0x07, 0x30,
+  0x09, 0x00, // 46
 };
 
 //int words[] = {
@@ -218,7 +229,7 @@ EasyButton button(buttonPin);
 bool blinker = 0;  // blinking control variable
 bool dpBlink = 0; // decimal point blinking control; set to 1 to make decimal points blink
 bool digitBlink = 0; // digit blinking control; set to 1 to make digits blink
-bool allOff = 2; // used for PWM brightness control
+bool blankMSD = 0; // set to true to blank MSD, when its value is '0'
 
 bool dpLeftStatus = 0;
 bool dpRightStatus = 0;
@@ -382,9 +393,6 @@ byte increaseBCD ( byte myBCD, int lowLimit, int highLimit ) {
 
 // update a single digit of the display array.
 // this is supposed to be the last ring in the display chain
-// DONE, implement a form of intensity control  through PWM
-// DONE, implement a form of blinking for everything
-// DONE, implement a form of blinking for decimal point
 // ------------------
 // || parameters: digit position, BCD to display (0-F), decimal point status ||
 void updateDisplay(int myPosition, int myBCD) {
@@ -395,6 +403,14 @@ void updateDisplay(int myPosition, int myBCD) {
       digitalWrite(inputs[c], BCD[myBCD][c]);
     }
 
+    if (myPosition == 3) {
+      if (myBCD == 0) {
+        blankMSD = 1;
+      } else {
+        blankMSD = 0;
+      }
+    }
+    
     // send a signal to the latch so that the display loads the data
     digitalWrite(latches[myPosition], HIGH);
     digitalWrite(latches[myPosition], LOW);
@@ -480,22 +496,32 @@ int IsDst(int day, int month, int year)
   return 0;
 }
 
+
 void blankControl (int b3, int b2, int b1, int b0) {
-  analogWrite(blanking[3], b3);
+
+  if ( blankMSD == 1) {
+    analogWrite(blanking[3], 255);
+  } else {
+    analogWrite(blanking[3], b3);
+  }
   analogWrite(blanking[2], b2);
   analogWrite(blanking[0], b1);
   analogWrite(blanking[1], b0);
+  
 }
+
 
 void oneSecondISR() {
   secondElapsed = 1;
   secondsElapsed += 1;
 }
 
+
 void buttonPressedTwoSeconds()
 {
   longPress = 1;
 }
+
 
 void buttonPressed()
 {
@@ -591,6 +617,7 @@ void loop() {
       newHours = map(analogRead(potPin), 0, 1000, 0, 23);
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
+      blankMSD = 0;
       blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
@@ -598,7 +625,7 @@ void loop() {
     // set minutes
     do {
       button.update();
-      newMinutes = map(analogRead(potPin), 0, 1000, 0, 59);
+      newMinutes = map(analogRead(potPin), 0, 1020, 0, 59);
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
       blankControl(240, 240, MAXBRI, MAXBRI); // blank rightmost two digits
@@ -622,6 +649,7 @@ void loop() {
       newDay = map(analogRead(potPin), 0, 1000, 1, 31);
       printBCD(2, decToBcd(newDay));
       printBCD(0, decToBcd(newMonth));
+      blankMSD = 0;
       blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
@@ -716,8 +744,13 @@ void loop() {
       case 19:
         printBCD(2, words[randomWord]);
         printBCD(0, words[randomWord+1]);
-        if (randomWord > 48) { // we're beyond 4-letter words
+        blankMSD=0;
+        if (randomWord > (WORDS3LETTER*2)) { // we're beyond 4-letter words
+          blankControl(255, lightIntensity, lightIntensity, 255);
+        } else if (randomWord > (WORDS4LETTER*2)) { // we're beyond 4-letter words
           blankControl(lightIntensity, lightIntensity, lightIntensity, 255);
+        } else {
+          blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
         }
         updateDpRight(0);
         updateDpLeft(0);
@@ -741,6 +774,7 @@ void loop() {
         // show month-day and day-of-the-week number
         printBCD(2, decToBcd(RTCnow.day()));
         printBCD(0, 0xFF);
+        blankMSD = 0;
         blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
         break;
       case 55:
