@@ -758,7 +758,7 @@ void loop() {
       case 59:
         // day-of-the-week number
         printBCD(2, 0xDA);
-        printBCD(0, decToBcd(RTCnow.dayOfTheWeek()));
+        printBCD(0, decToBcd((RTCnow.dayOfTheWeek()+7)%7));
         blankControl(lightIntensity, lightIntensity, 255, lightIntensity); // blank rightmost two digits
         break;
       case 58:
