@@ -16,7 +16,7 @@ DateTime RTCnow;
 
 // **** CONFIGURATION ****
 
-#define MAXBRI 20 // limit brightness PWM excursion (lower value = maximum brightness)
+#define MAXBRI 30 // limit brightness PWM excursion (lower value = maximum brightness)
 
 #define WORDS 46 // update this value to reflect the following array, minus 1
 #define WORDS4LETTER 32
@@ -311,7 +311,7 @@ void setup() {
     blankControl(50, 50, 50, 50);
     printBCD(2, 0xE0);
     printBCD(0, 0x02);
-    delay(5000);
+    delay(4500);
 
   }
 
@@ -664,16 +664,6 @@ void loop() {
     } while (shortPress == 0);
     shortPress = 0;
 
-    // set day of the week
-    //    do {
-    //      button.update();
-    //      newDoW = map(analogRead(potPin),0,1000, 1, 7);
-    //      printBCD(2, 0xDA);
-    //      printBCD(0, decToBcd(newDoW));
-    //      blankControl(150, 150, 255, 0); // no blanking for the year
-    //    } while (shortPress==0);
-    //    shortPress = 0;
-
     // update the RTC only if the button was not longpressed during previous steps
     if (longPress == 0) {
       rtc.adjust(DateTime(newYear, newMonth, newDay, newHours, newMinutes, 0));
@@ -739,56 +729,67 @@ void loop() {
       secondsElapsed = RTCnow.second();
     }
 
-    switch (secondsElapsed) {
-      case 18:
-      case 19:
-        printBCD(2, words[randomWord]);
-        printBCD(0, words[randomWord+1]);
-        blankMSD=0;
-        if (randomWord > (WORDS3LETTER*2)) { // we're beyond 4-letter words
-          blankControl(255, lightIntensity, lightIntensity, 255);
-        } else if (randomWord > (WORDS4LETTER*2)) { // we're beyond 4-letter words
-          blankControl(lightIntensity, lightIntensity, lightIntensity, 255);
-        } else {
+    // daytime roll, between 7 AM and midnight
+    if (RTCnow.hour() > 6) {
+
+      switch (secondsElapsed) {
+        case 18:
+        case 19:
+          // during the day show a random word
+          printBCD(2, words[randomWord]);
+          printBCD(0, words[randomWord+1]);
+          blankMSD=0;
+          if (randomWord > (WORDS3LETTER*2)) { // we're beyond 4-letter words
+            blankControl(255, lightIntensity, lightIntensity, 255);
+          } else if (randomWord > (WORDS4LETTER*2)) { // we're beyond 4-letter words
+            blankControl(lightIntensity, lightIntensity, lightIntensity, 255);
+          } else {
+            blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
+          }
+          updateDpRight(0);
+          updateDpLeft(0);
+          break;        
+        case 59:
+          // day-of-the-week number
+          printBCD(2, 0xDA);
+          printBCD(0, decToBcd((RTCnow.dayOfTheWeek()+7)%7));
+          blankControl(lightIntensity, lightIntensity, 255, lightIntensity); // blank rightmost two digits
+          break;
+        case 58:
+          printBCD(2, 0x20);
+          printBCD(0, decToBcd(RTCnow.year() % 100));
+          blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); // restore luminosity
+          break;
+        case 57:
+          printBCD(0, decToBcd(RTCnow.month()));
+          blankControl(255, 255, lightIntensity, lightIntensity); // blank leftmost two digits
+          break;
+        case 56:
+          // show month-day and day-of-the-week number
+          printBCD(2, decToBcd(RTCnow.day()));
+          printBCD(0, 0xFF);
+          blankMSD = 0;
+          blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
+          break;
+        case 55:
+          lightIntensity = fadeOut(lightIntensity);
+          delay(200);
+          updateDpRight(0);
+          updateDpLeft(0);
+          break;
+        default:
+          printBCD(2, decToBcd(RTCnow.hour()));
+          printBCD(0, decToBcd(RTCnow.minute()));
           blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
-        }
-        updateDpRight(0);
-        updateDpLeft(0);
-        break;
-      case 59:
-        // day-of-the-week number
-        printBCD(2, 0xDA);
-        printBCD(0, decToBcd((RTCnow.dayOfTheWeek()+7)%7));
-        blankControl(lightIntensity, lightIntensity, 255, lightIntensity); // blank rightmost two digits
-        break;
-      case 58:
-        printBCD(2, 0x20);
-        printBCD(0, decToBcd(RTCnow.year() % 100));
-        blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity); // restore luminosity
-        break;
-      case 57:
-        printBCD(0, decToBcd(RTCnow.month()));
-        blankControl(255, 255, lightIntensity, lightIntensity); // blank leftmost two digits
-        break;
-      case 56:
-        // show month-day and day-of-the-week number
-        printBCD(2, decToBcd(RTCnow.day()));
-        printBCD(0, 0xFF);
-        blankMSD = 0;
-        blankControl(lightIntensity, lightIntensity, 255, 255); // blank rightmost two digits
-        break;
-      case 55:
-        lightIntensity = fadeOut(lightIntensity);
-        delay(200);
-        updateDpRight(0);
-        updateDpLeft(0);
-        break;
-      default:
+          break;
+      } // end switch
+      
+    } else {
         printBCD(2, decToBcd(RTCnow.hour()));
         printBCD(0, decToBcd(RTCnow.minute()));
         blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
-        break;
     }
+    
   }
 
 
