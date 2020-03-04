@@ -17,6 +17,11 @@ DateTime RTCnow;
 // **** CONFIGURATION ****
 
 #define MAXBRI 30 // limit brightness PWM excursion (lower value = maximum brightness)
+#define MINBRI 240 // limit brightness PWM excursion (highest value = minimum brightness)
+
+#define MAXONTIME 80   // number of seconds to stay ON during the day if nightmode is chosen
+#define RESETONTIME 20  // reset to MAXONTIME if the timeout counter is lower than this
+#define RESETONTIMEDIFF 7 // difference of brightness level to trigger daytime display in night mode
 
 #define WORDS 46 // update this value to reflect the following array, minus 1
 #define WORDS4LETTER 32
@@ -233,9 +238,12 @@ bool blankMSD = 0; // set to true to blank MSD, when its value is '0'
 
 bool dpLeftStatus = 0;
 bool dpRightStatus = 0;
+bool nightMode = 0; // set at power up, if set to 1 activates timed display during the day ****TBD
+bool nightModeStayOn = 1;
 
 bool secondElapsed = 0;
 int  secondsElapsed = 30;
+int  timerCountdown = MAXONTIME;
 
 bool shortPress = 0;
 bool longPress = 0;
@@ -314,6 +322,19 @@ void setup() {
     delay(4500);
 
   }
+
+    updateDisplay(3, 12);
+    updateDisplay(2, 0);
+    updateDisplay(1, 0);
+  if (analogRead(potPin) < 10) {
+    nightMode = 1;
+    updateDisplay(0, 1);    
+  } else {
+    nightMode = 0;
+    updateDisplay(0, 0);
+  }
+  // DEBUG ***** nightMode=1; 
+  delay(1000);
 
   rtc.writeSqwPinMode(DS3231_SquareWave1Hz);
 
@@ -484,7 +505,6 @@ int IsDst(int day, int month, int year)
 //  Serial.print(myday, DEC);
 //  Serial.print(" month: ");
 //  Serial.print(mymonth, DEC);
-//  Serial.print(" year: ");
 //  Serial.println(myyear, DEC);
 
   if (mymonth < 3 || mymonth > 10)  return 0;
@@ -499,14 +519,21 @@ int IsDst(int day, int month, int year)
 
 void blankControl (int b3, int b2, int b1, int b0) {
 
-  if ( blankMSD == 1) {
-    analogWrite(blanking[3], 255);
+  if (((nightModeStayOn==1)&&(nightMode == 1))||(nightMode == 0)) {
+    if ( blankMSD == 1) {
+      analogWrite(blanking[3], 255);
+    } else {
+      analogWrite(blanking[3], b3);
+    }
+    analogWrite(blanking[2], b2);
+    analogWrite(blanking[0], b1);
+    analogWrite(blanking[1], b0);
   } else {
-    analogWrite(blanking[3], b3);
+    analogWrite(blanking[3], 255);
+    analogWrite(blanking[2], 255);
+    analogWrite(blanking[1], 255);
+    analogWrite(blanking[0], 255);
   }
-  analogWrite(blanking[2], b2);
-  analogWrite(blanking[0], b1);
-  analogWrite(blanking[1], b0);
   
 }
 
@@ -514,6 +541,7 @@ void blankControl (int b3, int b2, int b1, int b0) {
 void oneSecondISR() {
   secondElapsed = 1;
   secondsElapsed += 1;
+  timerCountdown -= 1;
 }
 
 
@@ -537,6 +565,7 @@ void buttonISR()
 void loop() {
 
   static int lightIntensity;
+  static int lightIntensityOld;
   int newHours;
   int newMinutes;
   int newDay;
@@ -679,6 +708,30 @@ void loop() {
     if (secondElapsed == 1) {
       blinker = secondsElapsed % 2; // blink stuff once a second (0.5 Hz)
 
+      // 0 to about 1020
+      //      lightIntensity = analogRead(sensorPin);
+      //      Serial.print("Light value: ");
+      //      Serial.println(lightIntensity);
+
+      lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, MINBRI);
+      if (nightMode == 1) {
+        if (abs(lightIntensity-lightIntensityOld)>RESETONTIMEDIFF) {
+          if (timerCountdown<RESETONTIME) {
+            timerCountdown = MAXONTIME;
+          }
+          nightModeStayOn = 1;
+        }
+        if (timerCountdown<1) {
+          nightModeStayOn = 0;
+        }
+
+        if (RTCnow.hour()<8) { // between 00:00 and 08:00 stay on regardless
+          nightModeStayOn = 1;          
+        }
+        
+      lightIntensityOld = lightIntensity;
+      }
+
       // Control blinking dots. Since there is no PWM on them,
       // turn them off in darkness or during DD/MM/YY display
       // at the end of the minute
@@ -689,14 +742,8 @@ void loop() {
         updateDpLeft(blinker);
         updateDpRight(!blinker);
       }
-
-      // 0 to about 1020
-      //      lightIntensity = analogRead(sensorPin);
-      //      Serial.print("Light value: ");
-      //      Serial.println(lightIntensity);
-
-      lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, 240);
-
+      
+      
       secondElapsed = 0;
 
     }
@@ -709,23 +756,6 @@ void loop() {
       
       // once a minute update the data from RTC
       RTCnow = rtc.now();
-//      Serial.print(RTCnow.year(), DEC);
-//      Serial.print('/');
-//      Serial.print(RTCnow.month(), DEC);
-//      Serial.print('/');
-//      Serial.print(RTCnow.day(), DEC);
-//      Serial.print(" (");
-//      Serial.print(RTCnow.dayOfTheWeek());
-//      Serial.print(") ");
-//      Serial.print(RTCnow.hour(), DEC);
-//      Serial.print(':');
-//      Serial.print(RTCnow.minute(), DEC);
-//      Serial.print(':');
-//      Serial.println(RTCnow.second(), DEC);
-//      Serial.print("Temperature: ");
-//      Serial.println((int)rtc.getTemperature());
-//      Serial.println(lightIntensity);
-
       secondsElapsed = RTCnow.second();
     }
 
