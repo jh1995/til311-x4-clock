@@ -221,6 +221,8 @@ int blanking[4] = {6, 5, 9, 10}; // blanking line for brightness control via PWM
 // **** END I/O PIN DEFINITIONS ****
 
 #define DSTADDRESS 1 // EEPROM position for DST status
+#define NIGHTMODEEE 10 // EEPROM position to store night mode setting
+
 byte seconds;
 byte minutes;
 byte hours;
@@ -323,16 +325,20 @@ void setup() {
 
   }
 
+    blankControl(50, 50, 50, 50);
     updateDisplay(3, 12);
     updateDisplay(2, 0);
     updateDisplay(1, 0);
-  if (analogRead(potPin) < 10) {
-    nightMode = 1;
-    updateDisplay(0, 1);    
-  } else {
+  if (analogRead(potPin) > 1000) {
     nightMode = 0;
-    updateDisplay(0, 0);
+    EEPROM.write(NIGHTMODEEE, nightMode);   
+  } else if (analogRead(potPin) < 10) {
+    nightMode = 1;
+    EEPROM.write(NIGHTMODEEE, nightMode);
+  } else {  // pot is unconnected or not max nor min
+    nightMode = EEPROM.read(NIGHTMODEEE);
   }
+  updateDisplay(0, nightMode); 
   // DEBUG ***** nightMode=1; 
   delay(1000);
 
@@ -712,7 +718,7 @@ void loop() {
       //      lightIntensity = analogRead(sensorPin);
       //      Serial.print("Light value: ");
       //      Serial.println(lightIntensity);
-
+      
       lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, MINBRI);
       if (nightMode == 1) {
         if (abs(lightIntensity-lightIntensityOld)>RESETONTIMEDIFF) {
