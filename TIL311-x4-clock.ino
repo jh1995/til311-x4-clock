@@ -18,6 +18,7 @@ DateTime RTCnow;
 
 #define MAXBRI 30 // limit brightness PWM excursion (lower value = maximum brightness)
 #define MINBRI 240 // limit brightness PWM excursion (highest value = minimum brightness)
+#define DIMBRI 240
 
 #define MAXONTIME 80   // number of seconds to stay ON during the day if nightmode is chosen
 #define RESETONTIME 20  // reset to MAXONTIME if the timeout counter is lower than this
@@ -325,7 +326,7 @@ void setup() {
 
   }
 
-    blankControl(50, 50, 50, 50);
+    blankControl(50, 50, 255, 50);
     updateDisplay(3, 12);
     updateDisplay(2, 0);
     updateDisplay(1, 0);
@@ -578,6 +579,7 @@ void loop() {
   int newMonth;
   int newYear;
   int newDoW;
+  int tempValue;
   static int randomWord;
   
   button.update();
@@ -653,19 +655,33 @@ void loop() {
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
       blankMSD = 0;
-      blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
+      blankControl(MAXBRI, MAXBRI, DIMBRI, DIMBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
-    // set minutes
+    // set tens of minutes
     do {
       button.update();
-      newMinutes = map(analogRead(potPin), 0, 1020, 0, 59);
+      tempValue = map(analogRead(potPin), 0, 1020, 0, 5);
+      newMinutes = tempValue*10;
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
-      blankControl(240, 240, MAXBRI, MAXBRI); // blank rightmost two digits
+      blankControl(DIMBRI, DIMBRI, MAXBRI, DIMBRI); // blank rightmost two digits
+    } while (shortPress == 0);
+    newMonth = tempValue; // reusing and abusing variable
+    shortPress = 0;
+
+    // set unit of minutes
+    do {
+      button.update();
+      tempValue = map(analogRead(potPin), 0, 1020, 0, 9);
+      newMinutes = newMonth*10 + tempValue;
+      printBCD(2, decToBcd(newHours));
+      printBCD(0, decToBcd(newMinutes));
+      blankControl(DIMBRI, DIMBRI, DIMBRI, MAXBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
+
 
     // set month
     do {
@@ -673,7 +689,7 @@ void loop() {
       newMonth = map(analogRead(potPin), 0, 1000, 1, 12);
       printBCD(2, decToBcd(newDay));
       printBCD(0, decToBcd(newMonth));
-      blankControl(240, 240, MAXBRI, MAXBRI); // blank leftmost two digits
+      blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank leftmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
@@ -685,7 +701,7 @@ void loop() {
       printBCD(2, decToBcd(newDay));
       printBCD(0, decToBcd(newMonth));
       blankMSD = 0;
-      blankControl(MAXBRI, MAXBRI, 240, 240); // blank rightmost two digits
+      blankControl(MAXBRI, MAXBRI, DIMBRI, DIMBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
