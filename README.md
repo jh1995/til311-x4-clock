@@ -17,16 +17,30 @@ The user interface of this clock is composed of a button and a potentiometer. Al
 
 ## At power up
 
-At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00 AM and 08 AM. During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
+At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00:00 AM and 07:59 AM. During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
 
-To enter night mode power up the clock with the potentiometer fully closed (CCW).
-To enter continous operation power up the clock with the potentiometer fully open (CW).
-Any other pot position at power up keeps the previous setting, which is recorded into the permanent memory (EEPROM).
+* To enter night mode power up the clock with the potentiometer fully closed (CCW). Briefly displays "CO 1".
+* To enter continous operation power up the clock with the potentiometer fully open (CW). Briefly displays "CO 0".
+* Any other pot position at power up keeps the previous setting, which is recorded into the permanent memory (EEPROM). Brieflt displays "CO 0" or "CO 1" depending on the EEPROM value.
 
 ## Clock
 
-TBW
+Without uset interaction, the device goes into Clock mode and operates according to the logic described above. It applies leading-zero blanking. The two innermost dots blank alternatively every second. The digit luminosity is adjusted according to the incoming light (even though the algorithm still needs refining).
 
 ## Timer - counter
 
 TBW
+
+## Setting the clock
+
+A long press of the button during normal Clock operation activates the setting function. At each press the value is confirmed and moves to the next. The value is chosen rotating the potentiometer. This is the sequence:
+* hours (0-23)
+* tens of minutes (0-5)
+* units of minutes (0-9)
+* month (1-12)
+* day (1-31)
+* tens of year (2-5) -- from 2020 to 2050
+* units of year (0-9) 
+
+The new value is written to the RTC only after all parameters have been set. If you want to abort the setting procedure you can long-press the button and end the setting cycle, or power cycle the clock.
+
