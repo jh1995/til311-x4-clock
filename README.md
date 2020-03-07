@@ -10,3 +10,23 @@ This device uses:
 Since the display is HEX-capable, at one point the clock will show random words using A, B, C, D, E, F, I ("1"), O ("0") letters only. Actually, with some imagination, 2, 5 and 7 could act as Z, S and T.
 
 *Important*. LDR and potentiometer are connected to A6 and A7 respectively. These pins have no internal pull-up resistor. Remember it when designing your own circuit.
+
+# Operation
+
+The user interface of this clock is composed of a button and a potentiometer. All controls are a combination of the two.
+
+## At power up
+
+At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00 AM and 08 AM. During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
+
+To enter night mode power up the clock with the potentiometer fully closed (CCW).
+To enter continous operation power up the clock with the potentiometer fully open (CW).
+Any other pot position at power up keeps the previous setting, which is recorded into the permanent memory (EEPROM).
+
+## Clock
+
+TBW
+
+## Timer - counter
+
+TBW
