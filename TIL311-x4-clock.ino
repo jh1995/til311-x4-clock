@@ -587,9 +587,12 @@ void loop() {
   if (shortPress == 1) {
     // short button press, enter time COUNTER routine
 
+    nightModeStayOn = 1;
     longPress = 0; // acknowledge long press
     shortPress = 0; // reset short press
 
+    lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, MINBRI);
+    
     // get rid of DPs
     updateDpLeft(0);
     updateDpRight(0);
@@ -633,7 +636,8 @@ void loop() {
 
   } else if (longPress == 1) {
     // long button press, enter time SETTING routine
-
+    
+    nightModeStayOn = 1;
     longPress = 0; // acknowledge long press
     shortPress = 0; // reset short press
 
