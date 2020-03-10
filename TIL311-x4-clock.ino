@@ -580,6 +580,8 @@ void loop() {
   int newYear;
   int newDoW;
   int tempValue;
+  int oldValue;
+  int maxDayOfMonth;
   static int randomWord;
   
   button.update();
@@ -649,72 +651,119 @@ void loop() {
     newMinutes = RTCnow.minute();
     newDay = RTCnow.day();
     newMonth = RTCnow.month();
-    newYear = RTCnow.year();
+    newYear = RTCnow.year() % 100;
     newDoW = RTCnow.dayOfTheWeek();
 
     // set hours
+    oldValue = map(analogRead(potPin), 0, 1000, 0, 23);
     do {
       button.update();
-      newHours = map(analogRead(potPin), 0, 1000, 0, 23);
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
+      
+      tempValue = map(analogRead(potPin), 0, 1000, 0, 23);
+      // if the pot has moved
+      if (tempValue != oldValue) {
+        newHours = tempValue;
+        oldValue = tempValue;
+      }
+
       blankMSD = 0;
       blankControl(MAXBRI, MAXBRI, DIMBRI, DIMBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
-    // set tens of minutes
+    // set minutes
+    oldValue = map(analogRead(potPin), 0, 1015, 0, 59);
     do {
       button.update();
-      tempValue = map(analogRead(potPin), 0, 1020, 0, 5);
-      newMinutes = tempValue*10;
       printBCD(2, decToBcd(newHours));
       printBCD(0, decToBcd(newMinutes));
-      blankControl(DIMBRI, DIMBRI, MAXBRI, DIMBRI); // blank rightmost two digits
-    } while (shortPress == 0);
-    newMonth = tempValue; // reusing and abusing variable
-    shortPress = 0;
 
-    // set unit of minutes
-    do {
-      button.update();
-      tempValue = map(analogRead(potPin), 0, 1020, 0, 9);
-      newMinutes = newMonth*10 + tempValue;
-      printBCD(2, decToBcd(newHours));
-      printBCD(0, decToBcd(newMinutes));
-      blankControl(DIMBRI, DIMBRI, DIMBRI, MAXBRI); // blank rightmost two digits
+      tempValue = map(analogRead(potPin), 0, 1015, 0, 59);
+      // if the pot has moved
+      if (tempValue != oldValue) {
+        newMinutes = tempValue;
+        oldValue = tempValue;
+      }
+            
+      blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
-
 
     // set month
+    oldValue = map(analogRead(potPin), 0, 1000, 1, 12);
     do {
       button.update();
-      newMonth = map(analogRead(potPin), 0, 1000, 1, 12);
       printBCD(2, decToBcd(newDay));
       printBCD(0, decToBcd(newMonth));
+      
+      tempValue = map(analogRead(potPin), 0, 1000, 1, 12);
+      // if the pot has moved
+      if (tempValue != oldValue) {
+        newMonth = tempValue;
+        oldValue = tempValue;
+      }
+ 
+      
       blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank leftmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
     // set day
-    // *** TODO set day upper limit based on newMonth!!
+    switch (newMonth) {
+      case 1:
+      case 3:
+      case 5:
+      case 7:
+      case 8:
+      case 10:
+      case 12:
+        maxDayOfMonth = 31;
+        break;
+      case 4:
+      case 6:
+      case 9:
+      case 11:
+        maxDayOfMonth = 30;
+        break;
+      case 2: // alright, please don't set the time on THAT DAY of leap years!
+        maxDayOfMonth = 28;
+        break;
+    }
+      
+    oldValue = map(analogRead(potPin), 0, 1000, 1, maxDayOfMonth);    
     do {
       button.update();
-      newDay = map(analogRead(potPin), 0, 1000, 1, 31);
       printBCD(2, decToBcd(newDay));
       printBCD(0, decToBcd(newMonth));
+
+      tempValue = map(analogRead(potPin), 0, 1000, 1, maxDayOfMonth);
+      // if the pot has moved
+      if (tempValue != oldValue) {
+        newDay = tempValue;
+        oldValue = tempValue;
+      }
+      
       blankMSD = 0;
       blankControl(MAXBRI, MAXBRI, DIMBRI, DIMBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
 
     // set year
+    oldValue = map(analogRead(potPin), 0, 1000, 20, 50);    
     do {
       button.update();
-      newYear = map(analogRead(potPin), 0, 1000, 20, 50);
       printBCD(2, 0x20);
       printBCD(0, decToBcd(newYear));
+
+      tempValue = map(analogRead(potPin), 0, 1000, 20, 50);
+      // if the pot has moved
+      if (tempValue != oldValue) {
+        newYear = tempValue;
+        oldValue = tempValue;
+      }
+      
       blankControl(MAXBRI, MAXBRI, MAXBRI, MAXBRI); // no blanking for the year
     } while (shortPress == 0);
     shortPress = 0;
@@ -727,6 +776,8 @@ void loop() {
     // exit
     shortPress = 0;
     longPress = 0;
+    
+    RTCnow = rtc.now(); // update current time
 
   } else {
     // no button press, display time
@@ -808,7 +859,11 @@ void loop() {
         case 59:
           // day-of-the-week number
           printBCD(2, 0xDA);
-          printBCD(0, decToBcd((RTCnow.dayOfTheWeek()+7)%7));
+          if (RTCnow.dayOfTheWeek() == 0) {
+            printBCD(0, 1);
+          } else {
+            printBCD(0, decToBcd(RTCnow.dayOfTheWeek()));
+          }
           blankControl(lightIntensity, lightIntensity, 255, lightIntensity); // blank rightmost two digits
           break;
         case 58:
