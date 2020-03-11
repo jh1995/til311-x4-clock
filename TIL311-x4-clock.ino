@@ -618,6 +618,7 @@ void loop() {
         button.update();
         printBCD(2, decToBcd(secondsElapsed / 60));
         printBCD(0, decToBcd(secondsElapsed % 60));
+        lightIntensity = map(analogRead(sensorPin), 0, 1020, MAXBRI, MINBRI);
         blankControl(lightIntensity, lightIntensity, lightIntensity, lightIntensity);
         if (secondsElapsed > 5999) { secondsElapsed = 0; } // return to zero after 99'59"
       } while (shortPress == 0);
@@ -860,7 +861,7 @@ void loop() {
           // day-of-the-week number
           printBCD(2, 0xDA);
           if (RTCnow.dayOfTheWeek() == 0) {
-            printBCD(0, 1);
+            printBCD(0, 7);  // Sunday is day #7
           } else {
             printBCD(0, decToBcd(RTCnow.dayOfTheWeek()));
           }
