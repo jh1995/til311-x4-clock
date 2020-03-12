@@ -40,5 +40,22 @@ A long press of the button during normal Clock operation activates the setting f
 * day (1-31), mapped to actual month duration
 * year (from 2020 to 2050)
 
-The new value is written to the RTC only after all parameters have been set. If you want to abort the setting procedure you can long-press the button and end the setting cycle, or power cycle the clock.
+The new value is written to the RTC only after all parameters have been set. If you want to abort the setting procedure you can long-press the button and end the setting cycle as usual, or power cycle the clock. An abort request is acknowledged visually at the next short press with both dots ON.
+
+At the end of the setting operation, "CF 1" means "date/time has been written to the RTC" and "CF 0" means "nothing has changed in RTC".
+
+## Error messages - Informational codes
+
+The following messages are displayed briefly during operatin.
+
+|Code|Phase|Meaning|
+|---|---|---
+|CO 0|Boot|Entering continuous operation.|
+|CO 1|Boot|Entering Night Mode.|
+|CF 0|Date/time set|Date/time has NOT been written to the RTC.|
+|CF 1|Date/time set|Date/time has been written to the RTC.|
+| CO |Operation|Entering Timer/Counter mode.|
+|E001|Boot|Could not find RTC module.|
+|E002|Boot|RTC module had lost backup power, date/time information is bogus.|
+|CIA0|Boot|Boot sequence completed.|
 
