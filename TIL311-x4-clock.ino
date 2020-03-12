@@ -674,6 +674,12 @@ void loop() {
     } while (shortPress == 0);
     shortPress = 0;
 
+    if (longPress == 1) {
+      updateDpLeft(1);
+      updateDpRight(1);
+
+    }
+
     // set minutes
     oldValue = map(analogRead(potPin), 0, 1015, 0, 59);
     do {
@@ -691,6 +697,13 @@ void loop() {
       blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank rightmost two digits
     } while (shortPress == 0);
     shortPress = 0;
+
+    if (longPress == 1) {
+      updateDpLeft(1);
+      updateDpRight(1);
+
+    }
+
 
     // set month
     oldValue = map(analogRead(potPin), 0, 1000, 1, 12);
@@ -710,6 +723,13 @@ void loop() {
       blankControl(DIMBRI, DIMBRI, MAXBRI, MAXBRI); // blank leftmost two digits
     } while (shortPress == 0);
     shortPress = 0;
+
+    if (longPress == 1) {
+      updateDpLeft(1);
+      updateDpRight(1);
+
+    }
+
 
     // set day
     switch (newMonth) {
@@ -751,6 +771,12 @@ void loop() {
     } while (shortPress == 0);
     shortPress = 0;
 
+    if (longPress == 1) {
+      updateDpLeft(1);
+      updateDpRight(1);
+
+    }
+
     // set year
     oldValue = map(analogRead(potPin), 0, 1000, 20, 50);    
     do {
@@ -769,10 +795,22 @@ void loop() {
     } while (shortPress == 0);
     shortPress = 0;
 
+    if (longPress == 1) {
+      updateDpLeft(1);
+      updateDpRight(1);
+
+    }
+
     // update the RTC only if the button was not longpressed during previous steps
+    printBCD(2, 0xCF);
     if (longPress == 0) {
       rtc.adjust(DateTime(newYear, newMonth, newDay, newHours, newMinutes, 0));
+      printBCD(0, 1);
+    } else {
+      printBCD(0, 0);
     }
+    blankControl(MAXBRI, MAXBRI, 255, MAXBRI);
+    delay(1000);
 
     // exit
     shortPress = 0;
