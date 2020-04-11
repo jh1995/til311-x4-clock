@@ -17,7 +17,7 @@ The user interface of this clock is composed of a button and a potentiometer. Al
 
 ## At power up
 
-At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00:00 AM and 07:59 AM. During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
+At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00:00 AM and 08:59 AM (this value can be changed at compile time). During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
 
 * To enter night mode power up the clock with the potentiometer fully closed (CCW). Briefly displays "CO 1".
 * To enter continous operation power up the clock with the potentiometer fully open (CW). Briefly displays "CO 0".
@@ -29,7 +29,8 @@ Without user interaction, the device goes into Clock mode and operates according
 
 ## Timer - counter
 
-TBW
+During normal clock operation, regardless of day or night mode, a short press of the button enters the Timer - Counter mode. It displays " CO " and waits for a short press to start up-counting. This function tells the elapsed time, does not do a timer with a final alarm. I use this Counter when cooking because I remember how long something is supposed to cook but I forget the expected time.
+A short press during the counting stops the display, but the counter keeps going. While the display is paused, another short press returns to display to the counter. A long press instead prepares to exit the Timer - Counter function, if followed by a short press. Or, power cycle the clock to return to normal operation.
 
 ## Setting the clock
 
