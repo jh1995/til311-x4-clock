@@ -223,6 +223,7 @@ int blanking[4] = {6, 5, 9, 10}; // blanking line for brightness control via PWM
 
 #define DSTADDRESS 1 // EEPROM position for DST status
 #define NIGHTMODEEE 10 // EEPROM position to store night mode setting
+#define ENDOFNIGHTMODE 9 // end night mode at 9 AM. Integer
 
 byte seconds;
 byte minutes;
@@ -841,7 +842,7 @@ void loop() {
           nightModeStayOn = 0;
         }
 
-        if (RTCnow.hour()<8) { // between 00:00 and 08:00 stay on regardless
+        if (RTCnow.hour()<ENDOFNIGHTMODE) { // between 00:00 and 08:00 stay on regardless
           nightModeStayOn = 1;          
         }
         
