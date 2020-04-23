@@ -17,7 +17,7 @@ The user interface of this clock is composed of a button and a potentiometer. Al
 
 ## At power up
 
-At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00:00 AM and 08:59 AM (this value can be changed at compile time). During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
+At power up it is possible to choose between continuous operation and night mode. While in continuous operation the display is always on, in night mode it will display time between 00:00 AM and 08:59 AM (this value can be changed by the user). During the day the display is off unless the clock registers a large-ish variation in the incident light. In this case the display stays on for 80 seconds unless another light variation is noticed during the last 20 seconds, which resets the 80" counter.
 
 * To enter night mode power up the clock with the potentiometer fully closed (CCW). Briefly displays "CO 1".
 * To enter continous operation power up the clock with the potentiometer fully open (CW). Briefly displays "CO 0".
@@ -40,6 +40,7 @@ A long press of the button during normal Clock operation activates the setting f
 * month (1-12)
 * day (1-31), mapped to actual month duration
 * year (from 2020 to 2050)
+* full hour end of night mode (0-23), in EEPROM
 
 The new value is written to the RTC only after all parameters have been set. If you want to abort the setting procedure you can long-press the button and end the setting cycle as usual, or power cycle the clock. An abort request is acknowledged visually at the next short press with both dots ON.
 
@@ -53,6 +54,7 @@ The following messages are displayed briefly during operatin.
 |---|---|---
 |CO 0|Boot|Entering continuous operation.|
 |CO 1|Boot|Entering Night Mode.|
+|BExx|Date/time set|You are setting the end of night mode hour.|
 |CF 0|Date/time set|Date/time has NOT been written to the RTC.|
 |CF 1|Date/time set|Date/time has been written to the RTC.|
 | CO |Operation|Entering Timer/Counter mode.|
